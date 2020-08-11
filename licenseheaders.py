@@ -334,6 +334,7 @@ def parse_command_line(argv):
     parser.add_argument("--enc", nargs=1, dest="encoding", default=default_encoding,
                         help="Encoding of program files (default: {})".format(default_encoding))
     parser.add_argument("--dry", action="store_true", help="Only show what would get done, do not change any files")
+    parser.add_argument("--check", action="store_true", help="Raise an error if files do not include correct license")
     parser.add_argument("--safesubst", action="store_true",
                         help="Do not raise error if template variables cannot be substituted.")
     parser.add_argument("-D", "--debug", action="store_true", help="Enable debug messages (same as -v -v -v)")
@@ -587,7 +588,7 @@ def make_backup(file, arguments):
     """
     if arguments.b:
         LOGGER.info("Backing up file {} to {}".format(file, file + ".bak"))
-        if not arguments.dry:
+        if not arguments.dry and not arguments.check:
             copyfile(file, file + ".bak")
 
 
@@ -704,10 +705,14 @@ def main():
                     "Info for the file: headStart=%s, headEnd=%s, haveLicense=%s, skip=%s, len=%s, yearsline=%s",
                     finfo["headStart"], finfo["headEnd"], finfo["haveLicense"], finfo["skip"], len(lines),
                     finfo["yearsLine"])
+                if arguments.check:
+                    if finfo["haveLicense"] == False:
+                        LOGGER.error("File {} does not have a valid license".format(file))
+                        sys.exit(1)
                 # if we have a template: replace or add
                 if template_lines:
                     make_backup(file, arguments)
-                    if arguments.dry:
+                    if arguments.dry or arguments.check:
                         LOGGER.info("Would be updating changed file: {}".format(file))
                     else:
                         with open(file, 'w', encoding=arguments.encoding) as fw:
@@ -737,7 +742,7 @@ def main():
                     years_line = finfo["yearsLine"]
                     if years_line is not None:
                         make_backup(file, arguments)
-                        if arguments.dry:
+                        if arguments.dry or arguments.check:
                             LOGGER.info("Would be updating year line in file {}".format(file))
                         else:
                             with open(file, 'w', encoding=arguments.encoding) as fw:
